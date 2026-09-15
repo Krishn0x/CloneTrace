@@ -3,14 +3,14 @@ import {
   ShieldAlert, ShieldCheck, Cpu, Database, Network, Box, Lock, 
   Eye, Type, AppWindow, HardDrive, FileJson, AlertTriangle, 
   CheckCircle, PlusCircle, MinusCircle, Info, Maximize2, X,
-  ArrowRight, Shield
+  ArrowRight, Shield, Layers
 } from 'lucide-react';
 import { cn } from './App';
 
 export default function Dashboard({ report, onReset }) {
   const [judgeMode, setJudgeMode] = useState(false);
   const [activeDeltaTab, setActiveDeltaTab] = useState('ADDED');
-  const [showEvidence, setShowEvidence] = useState(false);
+  const [showEvidence, setShowEvidence] = useState(true);
 
   if (!report) return null;
 
@@ -29,16 +29,20 @@ export default function Dashboard({ report, onReset }) {
 
   // Visuals for Verdict
   const isMalicious = verdict === 'TROJANIZED CLONE' || verdict === 'MALWARE' || verdict === 'THREAT_INJECTED';
-  const isClone = verdict === 'EXACT CLONE' || verdict === 'SUSPICIOUS DERIVATIVE';
-  
+  const isForensicClone = verdict === 'REPACKAGED APP' || verdict === 'SUSPICIOUS DERIVATIVE' || verdict === 'EXACT CLONE';
+  const isNeutral = verdict === 'INSUFFICIENT EVIDENCE';
+
   let verdictColor = 'text-cyber-green border-cyber-green shadow-[0_0_20px_rgba(0,255,102,0.3)]';
   let verdictBg = 'bg-cyber-green/10';
   if (isMalicious || smoking_gun) {
     verdictColor = 'text-cyber-red border-cyber-red shadow-[0_0_30px_rgba(255,42,42,0.4)]';
     verdictBg = 'bg-cyber-red/10';
-  } else if (isClone) {
+  } else if (isForensicClone) {
     verdictColor = 'text-cyber-purple border-cyber-purple shadow-[0_0_20px_rgba(176,38,255,0.3)]';
     verdictBg = 'bg-cyber-purple/10';
+  } else if (isNeutral) {
+    verdictColor = 'text-gray-400 border-gray-600 shadow-none';
+    verdictBg = 'bg-white/5';
   }
 
   // Dimension Icons mapping
@@ -52,7 +56,7 @@ export default function Dashboard({ report, onReset }) {
     native: <HardDrive className="w-5 h-5" />
   };
 
-  const ScoreCard = ({ title, score, type }) => {
+  const ScoreCard = ({ title, subtitle, score, type }) => {
     let colorClass = 'text-cyber-blue shadow-[0_0_15px_rgba(0,240,255,0.2)]';
     let ringColor = 'stroke-cyber-blue';
     if (type === 'threat') { colorClass = 'text-cyber-red shadow-[0_0_15px_rgba(255,42,42,0.2)]'; ringColor = 'stroke-cyber-red'; }
@@ -65,7 +69,8 @@ export default function Dashboard({ report, onReset }) {
     return (
       <div className={cn("glass-panel p-6 rounded-2xl flex items-center justify-between group hover:-translate-y-1 transition-transform cursor-default", colorClass)}>
         <div>
-          <h3 className="text-gray-400 font-display uppercase tracking-wider text-xs font-bold mb-1">{title}</h3>
+          <h3 className="text-gray-400 font-display uppercase tracking-wider text-xs font-bold mb-0.5">{title}</h3>
+          <p className="text-gray-600 text-[10px] font-mono mb-2 italic">{subtitle}</p>
           <div className="flex items-baseline gap-1">
             <span className={cn("text-5xl font-black font-display tracking-tight", colorClass.split(' ')[0])}>{Math.round(score)}</span>
             <span className="text-xl text-gray-500 font-bold">%</span>
@@ -115,9 +120,9 @@ export default function Dashboard({ report, onReset }) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <ScoreCard title="Clone Confidence" score={scores.clone} type="clone" />
-            <ScoreCard title="Brand Confidence" score={scores.brand} type="brand" />
-            <ScoreCard title="Threat Confidence" score={scores.threat} type="threat" />
+            <ScoreCard title="Clone Confidence" subtitle="Structurally derived from baseline?" score={scores.clone} type="clone" />
+            <ScoreCard title="Brand Confidence" subtitle="Branding/content preserved?" score={scores.brand} type="brand" />
+            <ScoreCard title="Threat Confidence" subtitle="Security-relevant changes detected?" score={scores.threat} type="threat" />
           </div>
 
           {smoking_gun && (
@@ -138,6 +143,27 @@ export default function Dashboard({ report, onReset }) {
                    <li key={i} className="font-mono text-gray-300 flex items-start gap-3"><PlusCircle className="w-5 h-5 text-cyber-red shrink-0" />{item}</li>
                  ))}
                </ul>
+            </div>
+          )}
+
+          {/* Clone DNA — compact grid for Judge Mode */}
+          {intelligence?.clone_dna && Object.keys(intelligence.clone_dna).length > 0 && (
+            <div className="glass-panel p-6 rounded-2xl">
+              <h3 className="text-lg font-black font-display text-cyber-blue uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Database className="w-5 h-5" /> Clone DNA — Evidence Dimensions
+              </h3>
+              <div className="grid grid-cols-4 md:grid-cols-7 gap-3">
+                {Object.entries(intelligence.clone_dna).map(([dim, data]) => (
+                  <div key={dim} className="bg-black/40 p-3 rounded-xl border border-white/5 text-center">
+                    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1 truncate">{dim}</div>
+                    {data.availability ? (
+                      <div className="text-lg font-black font-display text-cyber-blue">{data.score}<span className="text-xs text-gray-500">%</span></div>
+                    ) : (
+                      <div className="text-[9px] font-mono text-cyber-red/70 uppercase">N/A</div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -251,9 +277,9 @@ export default function Dashboard({ report, onReset }) {
 
       {/* Scores Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <ScoreCard title="Clone Confidence" score={scores.clone} type="clone" />
-        <ScoreCard title="Brand Confidence" score={scores.brand} type="brand" />
-        <ScoreCard title="Threat Confidence" score={scores.threat} type="threat" />
+        <ScoreCard title="Clone Confidence" subtitle="Structurally derived from baseline?" score={scores.clone} type="clone" />
+        <ScoreCard title="Brand Confidence" subtitle="Branding/content preserved?" score={scores.brand} type="brand" />
+        <ScoreCard title="Threat Confidence" subtitle="Security-relevant changes detected?" score={scores.threat} type="threat" />
       </div>
 
       {/* Clone DNA Grid */}
